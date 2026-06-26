@@ -108,6 +108,40 @@ successive.
 
 ---
 
+## Eventi di dominio — quando si scatena ciascuno
+
+Gli eventi sono **registrati solo in caso di successo**: un'operazione che restituisce errore non
+registra **nulla**, e `RehydrateArticle` non registra niente (caricare dallo storage non è un fatto
+di business). `OccurredAt` è impostato a `time.Now().UTC()` dentro il costruttore dell'evento nel
+momento della registrazione. L'aggregato accoda a una slice privata `pendingEvents`; `PullEvents()`
+restituisce gli eventi **nell'ordine in cui sono stati registrati** e svuota la lista (drenata una
+volta). Il dominio non pubblica mai — un layer esterno (CP5) chiama `Save`, poi drena e dispatcha.
+
+| Evento | Registrato da | Si scatena quando (tutte le precondizioni passano) | Payload (+ `OccurredAt`) |
+|---|---|---|---|
+| `ArticleCreated` | `NewArticle(id, name, …, sku, price)` | si costruisce un nuovo Article — `id` e `name` non vuoti, `price.AmountCents > 0` | `ArticleID, SKU, ArticleName, PriceCents, Currency` |
+| `ArticlePriceChanged` | `Article.ChangePrice(newPrice)` | il prezzo cambia — `newPrice` ha la **stessa valuta** e `AmountCents > 0` | `ArticleID, OldPriceCents, NewPriceCents, Currency` |
+| `InventoryAdjusted` | `Article.AdjustInventory(location, delta, reason)` | lo stock di una location cambia — `location` non vuota; la giacenza è creata a 0 al primo uso; la `quantity` risultante resta `≥ 0` e `≥ reserved` | `ArticleID, LocationCode, Delta, NewQuantity, Reason` |
+| `StockReserved` | `Article.ReserveStock(location, qty, reservationID, orderID)` | una prenotazione riesce — la giacenza **esiste già**, `qty > 0` e `reserved + qty ≤ quantity` | `ArticleID, LocationCode, Quantity, ReservationID, OrderID` |
+
+**Quando NON si scatena alcun evento** (la chiamata torna errore e lo stato resta invariato — ogni
+caso è coperto da un test):
+- `ChangePrice` → valuta diversa, oppure `newPrice ≤ 0`.
+- `AdjustInventory` → location vuota, oppure un `delta` che porterebbe la `quantity` sotto `0` o sotto
+  le unità già `reserved`.
+- `ReserveStock` → la location non ha giacenza, `qty ≤ 0`, oppure `reserved + qty > quantity`.
+
+**Non emesso in CP3:** `StockReservationReleased`. Non esiste un'operazione di rilascio/annullo/
+conferma finché la prenotazione non diventa una sua entità (CP5+), quindi nessun percorso di codice
+lo registra ancora.
+
+Ogni evento implementa `DomainEvent` (`EventName()` + `OccurredAt()`). I campi del payload sono
+primitivi esportati; `occurredAt` è non esportato e impostato solo dal costruttore (immutabile). Così
+`events/` non importa tipi di dominio, resta una foglia di dipendenze, ed è pronto per la
+serializzazione on-the-wire (CP9) senza cicli di import.
+
+---
+
 ### Come verificare
 ```bash
 cd phase-03-skeleton

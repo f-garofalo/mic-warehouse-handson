@@ -103,6 +103,39 @@ Persistence, use cases, the `/articles` HTTP surface, auth, etc. arrive in later
 
 ---
 
+## Domain events — when each one fires
+
+Events are **recorded only on success**: an operation that returns an error records **nothing**, and
+`RehydrateArticle` records nothing at all (loading from storage is not a business fact). `OccurredAt`
+is set to `time.Now().UTC()` inside the event constructor at the moment of recording. The aggregate
+appends to a private `pendingEvents` slice; `PullEvents()` returns the events **in the order they
+were recorded** and clears the list (drained once). The domain never publishes — an outer layer
+(CP5) calls `Save`, then drains and dispatches.
+
+| Event | Recorded by | Fires when (all preconditions pass) | Payload (+ `OccurredAt`) |
+|---|---|---|---|
+| `ArticleCreated` | `NewArticle(id, name, …, sku, price)` | a new Article is constructed — `id` & `name` non-empty, `price.AmountCents > 0` | `ArticleID, SKU, ArticleName, PriceCents, Currency` |
+| `ArticlePriceChanged` | `Article.ChangePrice(newPrice)` | the price changes — `newPrice` has the **same currency** and `AmountCents > 0` | `ArticleID, OldPriceCents, NewPriceCents, Currency` |
+| `InventoryAdjusted` | `Article.AdjustInventory(location, delta, reason)` | stock at a location changes — `location` non-empty; the level is created at 0 on first use; the resulting `quantity` stays `≥ 0` and `≥ reserved` | `ArticleID, LocationCode, Delta, NewQuantity, Reason` |
+| `StockReserved` | `Article.ReserveStock(location, qty, reservationID, orderID)` | a reservation succeeds — the level **already exists**, `qty > 0`, and `reserved + qty ≤ quantity` | `ArticleID, LocationCode, Quantity, ReservationID, OrderID` |
+
+**When NO event fires** (the call returns an error and state is left unchanged — each case is covered
+by a test):
+- `ChangePrice` → different currency, or `newPrice ≤ 0`.
+- `AdjustInventory` → empty location, or a `delta` that would push `quantity` below `0` or below the
+  units already `reserved`.
+- `ReserveStock` → the location has no inventory level, `qty ≤ 0`, or `reserved + qty > quantity`.
+
+**Not emitted in CP3:** `StockReservationReleased`. There is no release/cancel/confirm operation
+until the reservation becomes its own entity (CP5+), so no code path records it yet.
+
+Every event implements `DomainEvent` (`EventName()` + `OccurredAt()`). Payload fields are exported
+primitives; `occurredAt` is unexported and set only by the constructor (immutable). So `events/`
+imports no domain type, stays a dependency leaf, and is ready for on-the-wire serialization (CP9)
+without an import cycle.
+
+---
+
 ### How to verify
 ```bash
 cd phase-03-skeleton
