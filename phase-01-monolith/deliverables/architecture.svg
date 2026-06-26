@@ -1,0 +1,103 @@
+<svg width="680" height="650" viewBox="0 0 680 650" role="img" xmlns="http://www.w3.org/2000/svg">
+  <title>MIC monolith — runtime architecture</title>
+  <desc>A browser single-page app sends HTTP/JSON to the mic-app container, where nginx proxies to PHP-FPM running a front controller, a router, controllers and one generic repository over PDO, which reads and writes a single MySQL database holding two generic tables: business_data and business_relations. A separate Adminer container connects to MySQL for browsing.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <style>
+      text{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif}
+      .t{font-size:14px;fill:#2C2C2A}
+      .th{font-size:14px;font-weight:600;fill:#2C2C2A}
+      .ts{font-size:12px;fill:#5F5E5A}
+      .box{fill:#FFFFFF;stroke:#B4B2A9;stroke-width:1.25}
+      .c-gray rect{fill:#F1EFE8;stroke:#5F5E5A;stroke-width:1.25}
+      .c-gray .th{fill:#2C2C2A}
+      .c-gray .ts{fill:#444441}
+      .c-teal rect{fill:#E1F5EE;stroke:#0F6E56;stroke-width:1.25}
+      .c-teal .th{fill:#04342C}
+      .c-teal .ts{fill:#085041}
+      .c-purple rect{fill:#EEEDFE;stroke:#534AB7;stroke-width:1.25}
+      .c-purple .th{fill:#26215C}
+      .c-purple .ts{fill:#3C3489}
+    </style>
+  </defs>
+
+  <rect x="0" y="0" width="680" height="650" fill="#FFFFFF"/>
+
+  <!-- Client -->
+  <g class="c-gray">
+    <rect x="180" y="40" width="260" height="52" rx="8"/>
+    <text class="th" x="310" y="64" text-anchor="middle">Browser — SPA</text>
+    <text class="ts" x="310" y="82" text-anchor="middle">Vanilla JS · hash router · Chart.js</text>
+  </g>
+
+  <!-- containers (neutral) -->
+  <rect class="box" x="110" y="130" width="400" height="312" rx="12"/>
+  <text class="th" x="128" y="153">mic-app · single container</text>
+  <text class="ts" x="128" y="170">nginx + PHP-FPM via supervisor</text>
+
+  <rect class="box" x="110" y="480" width="400" height="118" rx="12"/>
+  <text class="th" x="128" y="503">MySQL · database mic</text>
+  <text class="ts" x="128" y="520">the only datastore · :3306</text>
+
+  <!-- arrows -->
+  <line x1="310" y1="92"  x2="310" y2="128" stroke="#888780" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text class="ts" x="320" y="113" text-anchor="start">HTTP :8088 → 80</text>
+  <line x1="310" y1="228" x2="310" y2="246" stroke="#888780" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text class="ts" x="320" y="242" text-anchor="start">fastcgi :9000</text>
+  <line x1="310" y1="294" x2="310" y2="312" stroke="#888780" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="310" y1="360" x2="310" y2="378" stroke="#888780" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="310" y1="442" x2="310" y2="478" stroke="#888780" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text class="ts" x="320" y="463" text-anchor="start">SQL (prepared)</text>
+  <line x1="522" y1="530" x2="512" y2="530" stroke="#888780" stroke-width="1.25" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+
+  <!-- app internals (teal) -->
+  <g class="c-teal">
+    <rect x="160" y="182" width="300" height="46" rx="6"/>
+    <text class="th" x="310" y="203" text-anchor="middle">nginx :80</text>
+    <text class="ts" x="310" y="220" text-anchor="middle">static · fastcgi proxy · serves SPA</text>
+  </g>
+  <g class="c-teal">
+    <rect x="160" y="248" width="300" height="46" rx="6"/>
+    <text class="th" x="310" y="269" text-anchor="middle">index.php — front controller</text>
+    <text class="ts" x="310" y="286" text-anchor="middle">routes /api/* · returns SPA shell</text>
+  </g>
+  <g class="c-teal">
+    <rect x="160" y="314" width="300" height="46" rx="6"/>
+    <text class="th" x="310" y="335" text-anchor="middle">Router → Controller ×17</text>
+    <text class="ts" x="310" y="352" text-anchor="middle">decodes the generic columns</text>
+  </g>
+  <g class="c-teal">
+    <rect x="160" y="380" width="300" height="46" rx="6"/>
+    <text class="th" x="310" y="401" text-anchor="middle">Repository + PDO</text>
+    <text class="ts" x="310" y="418" text-anchor="middle">one generic data layer</text>
+  </g>
+
+  <!-- data store (purple) -->
+  <g class="c-purple">
+    <rect x="136" y="532" width="160" height="50" rx="6"/>
+    <text class="th" x="216" y="556" text-anchor="middle">business_data</text>
+    <text class="ts" x="216" y="572" text-anchor="middle">~18 record types</text>
+  </g>
+  <g class="c-purple">
+    <rect x="318" y="532" width="160" height="50" rx="6"/>
+    <text class="th" x="398" y="556" text-anchor="middle">business_relations</text>
+    <text class="ts" x="398" y="572" text-anchor="middle">all relationships</text>
+  </g>
+
+  <!-- tooling (gray) -->
+  <g class="c-gray">
+    <rect x="524" y="505" width="116" height="50" rx="6"/>
+    <text class="th" x="582" y="529" text-anchor="middle">Adminer :8082</text>
+    <text class="ts" x="582" y="545" text-anchor="middle">DB browser</text>
+  </g>
+
+  <!-- legend -->
+  <g class="c-gray"><rect x="176" y="612" width="14" height="14" rx="3"/></g>
+  <text class="ts" x="196" y="623" text-anchor="start">Client</text>
+  <g class="c-teal"><rect x="270" y="612" width="14" height="14" rx="3"/></g>
+  <text class="ts" x="290" y="623" text-anchor="start">Application</text>
+  <g class="c-purple"><rect x="396" y="612" width="14" height="14" rx="3"/></g>
+  <text class="ts" x="416" y="623" text-anchor="start">Data store</text>
+</svg>
