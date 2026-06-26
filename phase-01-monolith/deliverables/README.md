@@ -1,5 +1,7 @@
 # Phase 01 — Deliverables (Breakout 1: understand MIC)
 
+> Versione italiana: [`README-IT.md`](./README-IT.md)
+
 The five artifacts required by `../README.md`. Each is grounded in the source
 (code + `database/schema.sql` + `database/seed.sql`), with `file:line` evidence inline.
 
