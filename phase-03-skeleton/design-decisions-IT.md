@@ -144,8 +144,15 @@ serializzazione on-the-wire (CP9) senza cicli di import.
 
 ### Come verificare
 ```bash
-cd phase-03-skeleton
-go test ./... -v        # ogni invariante verde
-go vet ./... && gofmt -l .
-go run .                # poi: curl localhost:8081/health  → {"status":"ok"}
+cd phase-03-skeleton                           # prerequisito: Go 1.22+ (niente Docker, niente DB)
+
+go test ./...                                  # tutti i test (sintetico)
+go test ./... -v                               # verboso: ogni invariante, uno a uno
+go test ./entities/ -run TestReserveStock -v   # una singola regola (reserved <= quantity)
+go test ./... -cover                           # copertura
+
+go vet ./... && gofmt -l .                     # niente warning, niente file non formattati
+
+go run .                                       # avvia il servizio, poi in un altro terminale:
+curl -s localhost:8081/health                  # -> {"status":"ok"}
 ```

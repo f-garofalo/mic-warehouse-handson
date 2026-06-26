@@ -138,8 +138,15 @@ without an import cycle.
 
 ### How to verify
 ```bash
-cd phase-03-skeleton
-go test ./... -v        # every invariant green
-go vet ./... && gofmt -l .
-go run .                # then: curl localhost:8081/health  → {"status":"ok"}
+cd phase-03-skeleton                           # prerequisite: Go 1.22+ (no Docker, no DB)
+
+go test ./...                                  # all tests (concise)
+go test ./... -v                               # verbose: every invariant, one by one
+go test ./entities/ -run TestReserveStock -v   # one rule in isolation (reserved <= quantity)
+go test ./... -cover                           # coverage
+
+go vet ./... && gofmt -l .                     # no warnings, no unformatted files
+
+go run .                                       # boot the service, then in another shell:
+curl -s localhost:8081/health                  # -> {"status":"ok"}
 ```
