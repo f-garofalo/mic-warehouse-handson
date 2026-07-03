@@ -2,15 +2,10 @@ package repositories
 
 import (
 	"context"
-	"errors"
 
 	"warehouse.local/core/entities"
 	"warehouse.local/core/interfaces"
 )
-
-// ErrDualWriteTODO is returned by the starter implementation until you complete
-// the dual-write / single-read decorator in Phase 04 Task 2.
-var ErrDualWriteTODO = errors.New("dual-write decorator TODO: complete Phase 04 Task 2")
 
 // ReadMode controls where DualWriteArticleRepository routes reads.
 //
@@ -26,13 +21,9 @@ const (
 )
 
 // DualWriteArticleRepository wraps two interfaces.ArticleRepository implementations
-// (legacy + BC). It must write to both on every mutation and route reads to a single
-// store chosen by mode.
-//
-// This file is intentionally a starter. In Task 2 you implement the five methods so
-// the dual-write decorator works against the two real databases (exercised by the
-// seed CLI). Per ADR-013 the decorator is transitional: once cutover completes it is
-// deleted.
+// (legacy + BC). It writes to both on every mutation and routes reads to a single
+// store chosen by mode. Per ADR-013 the decorator is transitional: once cutover
+// completes it is deleted.
 type DualWriteArticleRepository struct {
 	legacy interfaces.ArticleRepository
 	bc     interfaces.ArticleRepository
@@ -50,30 +41,40 @@ func NewDualWriteArticleRepository(
 // compile-time interface check
 var _ interfaces.ArticleRepository = (*DualWriteArticleRepository)(nil)
 
+// Save writes to legacy FIRST; if legacy fails we return the error and do NOT
+// touch BC. Then it writes to BC; if BC fails we return the error — legacy keeps
+// the article, there is no rollback policy in this exercise.
 func (r *DualWriteArticleRepository) Save(ctx context.Context, a *entities.Article) error {
-	// TODO Task 2: write to legacy FIRST; if it fails, return the error and do
-	// NOT touch BC. Then write to BC; if it fails, return the error (legacy keeps
-	// the article — there is no rollback policy in this exercise).
-	return ErrDualWriteTODO
+	if err := r.legacy.Save(ctx, a); err != nil {
+		return err
+	}
+	return r.bc.Save(ctx, a)
 }
 
+// Delete follows the same order and failure rule as Save: legacy first, then BC.
 func (r *DualWriteArticleRepository) Delete(ctx context.Context, id string) error {
-	// TODO Task 2: delete from legacy first, then BC (same failure rule as Save).
-	return ErrDualWriteTODO
+	if err := r.legacy.Delete(ctx, id); err != nil {
+		return err
+	}
+	return r.bc.Delete(ctx, id)
 }
 
 func (r *DualWriteArticleRepository) FindByID(ctx context.Context, id string) (*entities.Article, error) {
-	// TODO Task 2: route the read to a single store based on r.mode
-	// (ReadFromBC -> bc, otherwise legacy).
-	return nil, ErrDualWriteTODO
+	return r.readStore().FindByID(ctx, id)
 }
 
 func (r *DualWriteArticleRepository) FindBySKU(ctx context.Context, skuCode string) (*entities.Article, error) {
-	// TODO Task 2: route the read to a single store based on r.mode.
-	return nil, ErrDualWriteTODO
+	return r.readStore().FindBySKU(ctx, skuCode)
 }
 
 func (r *DualWriteArticleRepository) List(ctx context.Context) ([]*entities.Article, error) {
-	// TODO Task 2: route the read to a single store based on r.mode.
-	return nil, ErrDualWriteTODO
+	return r.readStore().List(ctx)
+}
+
+// readStore returns the single store reads are routed to, per mode.
+func (r *DualWriteArticleRepository) readStore() interfaces.ArticleRepository {
+	if r.mode == ReadFromBC {
+		return r.bc
+	}
+	return r.legacy
 }
