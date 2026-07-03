@@ -41,8 +41,9 @@ func main() {
 	createUC := usecases.NewCreateArticleUseCase(repo, disp)
 	getUC := usecases.NewGetArticleUseCase(repo)
 	changePriceUC := usecases.NewChangeArticlePriceUseCase(repo, disp)
+	listUC := usecases.NewListArticlesUseCase(repo)
 
-	articleHandler := handlers.NewArticleHandler(createUC, getUC, changePriceUC)
+	articleHandler := handlers.NewArticleHandler(createUC, getUC, changePriceUC, listUC)
 	router := handlers.NewRouter(articleHandler)
 
 	e := echo.New()

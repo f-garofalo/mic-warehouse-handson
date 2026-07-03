@@ -1,13 +1,14 @@
-// Package handlers is the HTTP layer for Phase 05. It is a deliberately reduced
-// version of the Phase 06 layer: no auth, no middleware beyond logger/recover,
-// no list/pagination, no dual-write/MySQL, no error-sentinel juggling. A handler
-// does exactly one job: translate HTTP <-> use case. Business logic stays in the
-// use cases; rules stay in the aggregate.
+// Package handlers is the HTTP layer. In Phase 06 it grows list + pagination, is
+// wired to the real dual-write repository, and matches the unified not-found
+// sentinel; auth stays out (that is CP7). A handler does exactly one job:
+// translate HTTP <-> use case. Business logic stays in the use cases; rules in
+// the aggregate.
 package handlers
 
 import (
 	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/labstack/echo/v4"
 
@@ -20,14 +21,16 @@ type ArticleHandler struct {
 	createUC      *usecases.CreateArticleUseCase
 	getUC         *usecases.GetArticleUseCase
 	changePriceUC *usecases.ChangeArticlePriceUseCase
+	listUC        *usecases.ListArticlesUseCase
 }
 
 func NewArticleHandler(
 	create *usecases.CreateArticleUseCase,
 	get *usecases.GetArticleUseCase,
 	changePrice *usecases.ChangeArticlePriceUseCase,
+	list *usecases.ListArticlesUseCase,
 ) *ArticleHandler {
-	return &ArticleHandler{createUC: create, getUC: get, changePriceUC: changePrice}
+	return &ArticleHandler{createUC: create, getUC: get, changePriceUC: changePrice, listUC: list}
 }
 
 // --- request / response DTOs (the BC's clean contract: price_cents + currency) ---
@@ -53,6 +56,18 @@ type ArticleResponse struct {
 	Description string `json:"description"`
 	PriceCents  int64  `json:"price_cents"`
 	Currency    string `json:"currency"`
+}
+
+// ListResponse mirrors the MIC monolith's list envelope: { data, meta }.
+type ListResponse struct {
+	Data []ArticleResponse `json:"data"`
+	Meta ListMeta          `json:"meta"`
+}
+
+type ListMeta struct {
+	Total  int `json:"total"`
+	Limit  int `json:"limit"`
+	Offset int `json:"offset"`
 }
 
 // ============================================================================
@@ -112,6 +127,27 @@ func (h *ArticleHandler) ChangeArticlePrice(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 	}
 	return c.JSON(http.StatusOK, toArticleResponse(out.Article))
+}
+
+// ============================================================================
+// Phase 06 — List. GET /articles?limit=&offset=  ->  { data, meta }
+// ============================================================================
+
+func (h *ArticleHandler) ListArticles(c echo.Context) error {
+	limit, _ := strconv.Atoi(c.QueryParam("limit"))
+	offset, _ := strconv.Atoi(c.QueryParam("offset"))
+	out, err := h.listUC.Execute(c.Request().Context(), usecases.ListArticlesInput{Limit: limit, Offset: offset})
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	items := make([]ArticleResponse, 0, len(out.Articles))
+	for _, a := range out.Articles {
+		items = append(items, toArticleResponse(a))
+	}
+	return c.JSON(http.StatusOK, ListResponse{
+		Data: items,
+		Meta: ListMeta{Total: out.Total, Limit: out.Limit, Offset: out.Offset},
+	})
 }
 
 // toArticleResponse maps the aggregate to the transport DTO. Mapping is the

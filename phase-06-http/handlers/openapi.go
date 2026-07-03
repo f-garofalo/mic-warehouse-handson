@@ -59,6 +59,26 @@ paths:
       responses:
         '201': { description: created, content: { application/json: { schema: { $ref: '#/components/schemas/Article' } } } }
         '400': { description: bad request }
+    get:
+      summary: List articles (paginated)
+      parameters:
+        - { name: limit, in: query, required: false, schema: { type: integer, default: 50 } }
+        - { name: offset, in: query, required: false, schema: { type: integer, default: 0 } }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/Article' } }
+                  meta:
+                    type: object
+                    properties:
+                      total: { type: integer }
+                      limit: { type: integer }
+                      offset: { type: integer }
   /articles/{id}:
     get:
       summary: Get an article by id (SLICE 1 - you build this)

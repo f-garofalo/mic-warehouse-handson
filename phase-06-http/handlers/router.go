@@ -17,6 +17,9 @@ func (r *Router) Register(e *echo.Echo) {
 	// GIVEN — the worked-example route.
 	e.POST("/articles", r.articleHandler.CreateArticle)
 
+	// Phase 06: paginated list.
+	e.GET("/articles", r.articleHandler.ListArticles)
+
 	// Slice 1: GetArticle.
 	e.GET("/articles/:id", r.articleHandler.GetArticle)
 
