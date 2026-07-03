@@ -100,6 +100,15 @@ paths:
       responses:
         '200': { description: ok, content: { application/json: { schema: { $ref: '#/components/schemas/Article' } } } }
         '400': { description: bad request }
+  /v0/articles/{id}:
+    get:
+      summary: (DEPRECATED) Get an article by id - use /articles/{id} instead
+      deprecated: true
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: ok (response carries Deprecation/Sunset/Link headers), content: { application/json: { schema: { $ref: '#/components/schemas/Article' } } } }
+        '404': { description: not found }
 components:
   schemas:
     CreateArticle:

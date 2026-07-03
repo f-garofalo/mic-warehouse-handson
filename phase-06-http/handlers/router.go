@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"time"
+
 	"github.com/labstack/echo/v4"
 )
 
@@ -25,4 +27,10 @@ func (r *Router) Register(e *echo.Echo) {
 
 	// Slice 2: ChangeArticlePrice.
 	e.PUT("/articles/:id/price", r.articleHandler.ChangeArticlePrice)
+
+	// Phase 06: deprecation policy (RFC 8594). A deprecated alias of
+	// GET /articles/:id that announces its sunset and points to the successor.
+	sunset := time.Date(2026, time.December, 31, 0, 0, 0, 0, time.UTC)
+	v0 := e.Group("/v0", Deprecation(sunset, "/articles/:id"))
+	v0.GET("/articles/:id", r.articleHandler.GetArticle)
 }
