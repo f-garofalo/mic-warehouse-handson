@@ -1,0 +1,14 @@
+services:
+  # Phase 05 runs entirely on in-memory adapters (persistence was CP04's job),
+  # so there is no database here. The app serves the API + Swagger UI on :8081.
+  app:
+    build: .
+    ports:
+      - "8081:8081"
+
+  test:
+    profiles: ["test"]
+    build:
+      context: .
+      target: builder
+    command: go test ./... -v
