@@ -1,0 +1,108 @@
+services:
+  legacy-mysql:
+    image: mysql:8.0
+    container_name: phase06-legacy-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: legacy_db
+      MYSQL_USER: legacy_user
+      MYSQL_PASSWORD: legacy_pass
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./legacy-init.sql:/docker-entrypoint-initdb.d/01-init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "mysql -h localhost -u$$MYSQL_USER -p$$MYSQL_PASSWORD -e 'SELECT 1' || exit 1"]
+      timeout: 20s
+      retries: 10
+
+  warehouse-mysql:
+    image: mysql:8.0
+    container_name: phase06-warehouse-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: warehouse_db
+      MYSQL_USER: warehouse_user
+      MYSQL_PASSWORD: warehouse_pass
+    ports:
+      - "3307:3306"
+    volumes:
+      - ./warehouse-init.sql:/docker-entrypoint-initdb.d/01-init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "mysql -h localhost -u$$MYSQL_USER -p$$MYSQL_PASSWORD -e 'SELECT 1' || exit 1"]
+      timeout: 20s
+      retries: 10
+
+  app:
+    build: .
+    ports:
+      - "8081:8081"
+    environment:
+      LEGACY_DB_HOST: legacy-mysql
+      LEGACY_DB_PORT: "3306"
+      LEGACY_DB_USER: legacy_user
+      LEGACY_DB_PASSWORD: legacy_pass
+      LEGACY_DB_NAME: legacy_db
+      WAREHOUSE_DB_HOST: warehouse-mysql
+      WAREHOUSE_DB_PORT: "3306"
+      WAREHOUSE_DB_USER: warehouse_user
+      WAREHOUSE_DB_PASSWORD: warehouse_pass
+      WAREHOUSE_DB_NAME: warehouse_db
+      DUAL_WRITE_READ_MODE: legacy
+    depends_on:
+      legacy-mysql:
+        condition: service_healthy
+      warehouse-mysql:
+        condition: service_healthy
+  adminer:
+    image: adminer:latest
+    container_name: phase06-adminer
+    ports:
+      - "8082:8080"
+    depends_on:
+      legacy-mysql:
+        condition: service_healthy
+      warehouse-mysql:
+        condition: service_healthy
+
+  test:
+    profiles: ["test"]
+    build:
+      context: .
+      target: builder
+    command: go test ./... -v
+
+  # seed: the Phase 04 dual-write demo CLI. Run on demand (profile=demo) to
+  # exercise the dual-write decorator against both real MySQL containers,
+  # without HTTP handlers (those arrive in Phase 06).
+  #
+  # Usage:
+  #   docker compose --profile demo run --build --rm seed write demo-1 ABC-001 "Widget" 2999 EUR
+  #   docker compose --profile demo run --build --rm seed read demo-1
+  #   docker compose --profile demo run --build --rm seed compare demo-1
+  #
+  # See cmd/seed/main.go for the full subcommand spec; see the Phase 04 README
+  # (Task 1 + Task 2) for the guided walkthrough.
+  seed:
+    profiles: ["demo"]
+    build:
+      context: .
+      target: builder
+    entrypoint: ["go", "run", "./cmd/seed"]
+    environment:
+      LEGACY_DB_HOST: legacy-mysql
+      LEGACY_DB_PORT: "3306"
+      LEGACY_DB_USER: legacy_user
+      LEGACY_DB_PASSWORD: legacy_pass
+      LEGACY_DB_NAME: legacy_db
+      WAREHOUSE_DB_HOST: warehouse-mysql
+      WAREHOUSE_DB_PORT: "3306"
+      WAREHOUSE_DB_USER: warehouse_user
+      WAREHOUSE_DB_PASSWORD: warehouse_pass
+      WAREHOUSE_DB_NAME: warehouse_db
+      DUAL_WRITE_READ_MODE: legacy
+    depends_on:
+      legacy-mysql:
+        condition: service_healthy
+      warehouse-mysql:
+        condition: service_healthy
