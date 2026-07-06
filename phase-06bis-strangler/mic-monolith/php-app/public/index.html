@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MIC - Modernizziamo in Claude</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%231a73e8'/%3E%3Ctext x='32' y='42' font-family='Arial' font-size='28' font-weight='bold' fill='white' text-anchor='middle'%3EMIC%3C/text%3E%3C/svg%3E" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo">MIC</div>
+        <div class="brand-sub">Modernizziamo in Claude</div>
+      </div>
+      <nav class="nav">
+        <a href="#/dashboard"  data-route="dashboard"><span class="ico">📊</span> Dashboard</a>
+        <a href="#/articles"   data-route="articles"><span class="ico">📦</span> Articoli</a>
+        <a href="#/customers"  data-route="customers"><span class="ico">👥</span> Clienti</a>
+        <a href="#/suppliers"  data-route="suppliers"><span class="ico">🏭</span> Fornitori</a>
+        <a href="#/listini"    data-route="listini"><span class="ico">📋</span> Listini</a>
+        <a href="#/orders"     data-route="orders"><span class="ico">🛒</span> Ordini</a>
+        <a href="#/invoices"   data-route="invoices"><span class="ico">🧾</span> Fatture</a>
+        <a href="#/magazzino"  data-route="magazzino"><span class="ico">📦</span> Magazzino</a>
+        <a href="#/sconti"     data-route="sconti"><span class="ico">💰</span> Sconti</a>
+        <a href="#/agenti"     data-route="agenti"><span class="ico">👨‍💼</span> Agenti</a>
+        <div class="nav-section">Impostazioni</div>
+        <a href="#/categories" data-route="categories"><span class="ico">🏷️</span> Categorie</a>
+        <a href="#/iva"        data-route="iva"><span class="ico">📑</span> Aliquote IVA</a>
+        <a href="#/users"      data-route="users"><span class="ico">⚙️</span> Utenti</a>
+      </nav>
+      <div class="sidebar-foot">
+        <small>Ispirato a FattureInCloud, costruito per essere modernizzato.</small>
+      </div>
+    </aside>
+
+    <div class="main">
+      <header class="topbar">
+        <div class="top-left">
+          <h1 id="page-title">Dashboard</h1>
+        </div>
+        <div class="top-search">
+          <input id="global-search" type="search" placeholder="Cerca clienti, articoli, ordini, fatture..." />
+        </div>
+        <div class="top-right">
+          <span class="user-chip">
+            <span class="avatar">MM</span>
+            <span class="user-meta">
+              <span class="user-name">Michele Mondora</span>
+              <span class="user-role">admin</span>
+            </span>
+          </span>
+        </div>
+      </header>
+
+      <main id="view" class="content">
+        <!-- views injected here -->
+        <div class="loading">Caricamento...</div>
+      </main>
+
+      <footer class="footer">
+        <span>MIC v0.1 - Modernizziamo in Claude - by Mic (Michele Mondora)</span>
+        <span>Da monolite a microservizi, con Claude come copilota.</span>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Modal container -->
+  <div id="modal-root"></div>
+
+  <!-- Toast container -->
+  <div id="toast-root"></div>
+
+  <script src="/js/app.js"></script>
+  <script src="/js/dashboard.js"></script>
+  <script src="/js/articles.js"></script>
+  <script src="/js/customers.js"></script>
+  <script src="/js/suppliers.js"></script>
+  <script src="/js/listini.js"></script>
+  <script src="/js/orders.js"></script>
+  <script src="/js/invoices.js"></script>
+  <script src="/js/magazzino.js"></script>
+  <script src="/js/sconti.js"></script>
+  <script src="/js/agenti.js"></script>
+  <script src="/js/settings.js"></script>
+  <script>MIC.boot();</script>
+</body>
+</html>

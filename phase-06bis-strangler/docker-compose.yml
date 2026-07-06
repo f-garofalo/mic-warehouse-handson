@@ -1,0 +1,46 @@
+services:
+  warehouse-mysql:
+    image: mysql:8.0
+    container_name: phase06bis-warehouse-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: warehouse_db
+      MYSQL_USER: warehouse_user
+      MYSQL_PASSWORD: warehouse_pass
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./warehouse-init.sql:/docker-entrypoint-initdb.d/01-init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "mysql -h localhost -u$$MYSQL_USER -p$$MYSQL_PASSWORD -e 'SELECT 1' || exit 1"]
+      timeout: 20s
+      retries: 10
+
+  app:
+    build: .
+    ports:
+      - "8081:8081"
+    environment:
+      WAREHOUSE_DB_HOST: warehouse-mysql
+      WAREHOUSE_DB_PORT: "3306"
+      WAREHOUSE_DB_USER: warehouse_user
+      WAREHOUSE_DB_PASSWORD: warehouse_pass
+      WAREHOUSE_DB_NAME: warehouse_db
+    depends_on:
+      warehouse-mysql:
+        condition: service_healthy
+  adminer:
+    image: adminer:latest
+    container_name: phase06bis-adminer
+    ports:
+      - "8082:8080"
+    depends_on:
+      warehouse-mysql:
+        condition: service_healthy
+
+  test:
+    profiles: ["test"]
+    build:
+      context: .
+      target: builder
+    command: go test ./... -v

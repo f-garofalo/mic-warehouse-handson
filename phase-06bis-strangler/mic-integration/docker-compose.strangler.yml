@@ -1,0 +1,112 @@
+services:
+  integration-mysql:
+    image: mysql:8.0
+    container_name: phase06bis-integration-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+    volumes:
+      - phase06bis_integration_mysql:/var/lib/mysql
+      - ../mic-monolith/database/schema.sql:/docker-entrypoint-initdb.d/01-mic-schema.sql:ro
+      - ../mic-monolith/database/seed.sql:/docker-entrypoint-initdb.d/02-mic-seed.sql:ro
+      - ../warehouse-init.sql:/docker-entrypoint-initdb.d/03-warehouse-schema.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+    networks:
+      default:
+        aliases:
+          - mysql
+          - warehouse-mysql
+
+  mic-app:
+    build:
+      context: ../mic-monolith
+    container_name: phase06bis-mic-app
+    environment:
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      DB_NAME: mic
+      DB_USER: root
+      DB_PASS: root
+    depends_on:
+      integration-mysql:
+        condition: service_healthy
+
+  warehouse-bc:
+    build:
+      context: ..
+    container_name: phase06bis-warehouse-bc
+    environment:
+      LEGACY_DB_HOST: integration-mysql
+      LEGACY_DB_PORT: "3306"
+      LEGACY_DB_USER: root
+      LEGACY_DB_PASSWORD: root
+      LEGACY_DB_NAME: mic
+      WAREHOUSE_DB_HOST: warehouse-mysql
+      WAREHOUSE_DB_PORT: "3306"
+      WAREHOUSE_DB_USER: root
+      WAREHOUSE_DB_PASSWORD: root
+      WAREHOUSE_DB_NAME: warehouse_db
+      READ_MODE: ${READ_MODE:-legacy}
+    depends_on:
+      integration-mysql:
+        condition: service_healthy
+
+  mic-compat-adapter:
+    build:
+      context: ./adapter
+    container_name: phase06bis-mic-compat-adapter
+    environment:
+      WAREHOUSE_BC_URL: http://warehouse-bc:8081
+      MONOLITH_URL: http://mic-app
+    depends_on:
+      - warehouse-bc
+      - mic-app
+
+  strangler-facade:
+    build:
+      context: ./facade
+    container_name: phase06bis-strangler-facade
+    ports:
+      - "8081:80"
+    environment:
+      ROUTE_MODE: ${ROUTE_MODE:-legacy}
+      MONOLITH_URL: http://mic-app:80
+      WAREHOUSE_ADAPTER_URL: http://mic-compat-adapter:8080
+    depends_on:
+      - mic-app
+      - mic-compat-adapter
+
+  facade-test:
+    profiles: ["test"]
+    image: golang:1.22-alpine
+    working_dir: /src
+    volumes:
+      - ./facade:/src
+    command: go test ./... -v
+
+  adminer:
+    image: adminer:latest
+    container_name: phase06bis-integration-adminer
+    ports:
+      - "8082:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: integration-mysql
+    depends_on:
+      integration-mysql:
+        condition: service_healthy
+
+  backfill-articles:
+    image: mysql:8.0
+    profiles: ["tools"]
+    volumes:
+      - ./backfill-articles.sql:/backfill-articles.sql:ro
+    entrypoint: ["sh", "-c", "mysql -hintegration-mysql -uroot -proot < /backfill-articles.sql"]
+    depends_on:
+      integration-mysql:
+        condition: service_healthy
+
+volumes:
+  phase06bis_integration_mysql:

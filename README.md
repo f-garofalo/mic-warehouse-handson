@@ -1,25 +1,26 @@
-# MIC → Warehouse BC: use cases & a first HTTP API (Lesson 8 · Phase 5)
+# MIC → Warehouse BC: the Strangler facade (Lesson 9 · Phase 6bis)
 
 > Versione italiana: [`README-IT.md`](./README-IT.md)
 
 A hands-on lab continuing the extraction of the **Warehouse** Bounded Context out of **MIC**, a legacy
 PHP invoicing monolith, into a clean **Go** microservice, with an **AI coding agent** as your engine.
-Lesson 7 built the domain (Phases 1–3); **Lesson 8** adds persistence (Phase 4) and the application +
-HTTP layers (Phase 5).
+Lesson 7 built the domain (Phases 1–3), Lesson 8 added persistence and a first HTTP API (Phases 4–5);
+**Lesson 9** puts the BC in front of real MIC traffic: you build the **Strangler facade** and operate
+the first cutover.
 
-This branch is the lab for **Lesson 8 — Phase 5** (use cases + a first HTTP API), and includes Phase 4.
-You do the work; the slides do not hand you the answer.
+This branch is the lab for **Lesson 9 — Phase 6bis** (build and operate the Strangler facade), and
+includes Phases 1–5 as context. You do the work; the slides do not hand you the answer.
 
 ## How this repo is organised
 
-Lesson 8 is split by phase, each phase as **two branches** (starting point + reference solution):
+Lesson 9 is split by phase, each phase as **two branches** (starting point + reference solution):
 
 | Branch | What it is |
 |---|---|
-| `lezione-8-fase-4` | Phase 4 starting point. No solutions. |
-| `lezione-8-fase-4-soluzione` | Phase 4 with the worked solutions. |
-| `lezione-8-fase-5` | Phase 5 starting point (includes Phase 4). No solutions. |
-| `lezione-8-fase-5-soluzione` | Phase 5 with the worked solutions. |
+| `lezione-9-fase-6bis` | Phase 6bis starting point (includes Phases 1–5). No solutions. |
+| `lezione-9-fase-6bis-soluzione` | Phase 6bis with the worked solutions. |
+| `lezione-9-fase-7` | Phase 7 starting point (includes Phase 6bis). No solutions. |
+| `lezione-9-fase-7-soluzione` | Phase 7 with the worked solutions. |
 
 Build your own work first. Reach for the solution branch only afterwards.
 
@@ -30,18 +31,19 @@ Build your own work first. Reach for the solution branch only afterwards.
 | CP1 — Understand | [`phase-01-monolith/`](./phase-01-monolith/README.md) | *(Lesson 7)* Bring MIC up and map it. |
 | CP2 — Decide | [`phase-02-analysis/`](./phase-02-analysis/README.md) | *(Lesson 7)* DDD analysis → the **Warehouse** BC. |
 | CP3 — Build | [`phase-03-skeleton/`](./phase-03-skeleton/README.md) | *(Lesson 7)* The Go domain layer. |
-| CP4 — Persist | [`phase-04-db/`](./phase-04-db/README.md) | Real adapters (legacy **ACL**) + a **dual-write** decorator. |
-| **CP5 — Serve** | [**`phase-05-usecases/`**](./phase-05-usecases/README.md) | **This lesson:** **use cases** (application workflows) and a thin **HTTP API** (with a Swagger UI at `/docs`). |
+| CP4 — Persist | [`phase-04-db/`](./phase-04-db/README.md) | *(Lesson 8)* Real adapters (legacy **ACL**) + a **dual-write** decorator. |
+| CP5 — Serve | [`phase-05-usecases/`](./phase-05-usecases/README.md) | *(Lesson 8)* Use cases and a thin HTTP API. |
+| **CP6bis — Route** | [**`phase-06bis-strangler/`**](./phase-06bis-strangler/README.md) | **This lesson:** write the facade's **routing decision**, then operate the cutover: two dials, staleness, incident, rollback. Your Phase 4 dual-write runs underneath. |
 
-**Where to start:** open [`phase-05-usecases/README.md`](./phase-05-usecases/README.md). Phases 1–4 are
-included as context (Phase 4 is the previous checkpoint).
+**Where to start:** open [`phase-06bis-strangler/README.md`](./phase-06bis-strangler/README.md).
+Phases 1–5 are included as context.
 
 ## Using an AI coding agent
 
 AI coding agents are part of the method here, not a shortcut around it.
 
-- **Start the agent in the right folder.** Open it on the phase folder you are working in (e.g.
-  `phase-05-usecases/`), not the whole repo, so it sees the code that matters.
+- **Start the agent in the right folder.** Open it on the phase folder you are working in
+  (`phase-06bis-strangler/`), not the whole repo, so it sees the code that matters.
 - **You own the conclusions.** The agent reads, drafts, and writes syntax; you decide the design, the
   invariants, and what goes into your deliverables.
 - **Push back.** When it asserts a rule, ask *"where in the code did you see that?"* before you trust it.

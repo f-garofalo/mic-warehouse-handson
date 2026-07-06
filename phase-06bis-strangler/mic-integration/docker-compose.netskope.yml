@@ -1,0 +1,24 @@
+services:
+  mic-app:
+    build:
+      secrets:
+        - netskope_ca
+
+  warehouse-bc:
+    build:
+      secrets:
+        - netskope_ca
+
+  mic-compat-adapter:
+    build:
+      secrets:
+        - netskope_ca
+
+  strangler-facade:
+    build:
+      secrets:
+        - netskope_ca
+
+secrets:
+  netskope_ca:
+    file: ${NETSKOPE_CA_BUNDLE}
