@@ -1,0 +1,14 @@
+services:
+  app:
+    build:
+      secrets:
+        - netskope_ca
+
+  test:
+    build:
+      secrets:
+        - netskope_ca
+
+secrets:
+  netskope_ca:
+    file: ${NETSKOPE_CA_BUNDLE}

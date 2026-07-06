@@ -1,0 +1,16 @@
+# Keep host-only build artefacts out of the Docker build context.
+#
+# obj/ and bin/ are produced by IDE-side `dotnet restore` / `dotnet build`
+# (Visual Studio, Rider, JetBrains, dotnet CLI on the host). They embed
+# host-specific absolute paths (e.g. NuGet fallback folders under
+# 'C:\Program Files (x86)\Microsoft Visual Studio\...') that are invalid
+# inside the Linux build container and cause MSB4018 PackagingException
+# on `dotnet publish`.
+
+obj/
+bin/
+
+# Editor / VCS noise that has no business inside the image either.
+.vs/
+.vscode/
+.idea/

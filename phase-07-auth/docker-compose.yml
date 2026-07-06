@@ -1,0 +1,53 @@
+services:
+  iam-mock:
+    build: ./iam-mock
+    container_name: phase07-iam-mock
+    ports:
+      - "9001:9001"
+    environment:
+      ASPNETCORE_URLS: http://+:9001
+      IAM_ISSUER: http://iam-mock:9001
+      IAM_KEY_ID: tsid-mock-rs512-2026
+      IAM_USER_CLIENT_ID: 11111111-2222-4333-8444-555555555555
+
+  warehouse-mysql:
+    image: mysql:8.0
+    container_name: phase07-warehouse-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: warehouse_db
+      MYSQL_USER: warehouse_user
+      MYSQL_PASSWORD: warehouse_pass
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./warehouse-init.sql:/docker-entrypoint-initdb.d/01-init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "mysql -h localhost -u$$MYSQL_USER -p$$MYSQL_PASSWORD -e 'SELECT 1' || exit 1"]
+      timeout: 20s
+      retries: 10
+
+  app:
+    build: .
+    ports:
+      - "8081:8081"
+    environment:
+      WAREHOUSE_DB_HOST: warehouse-mysql
+      WAREHOUSE_DB_PORT: "3306"
+      WAREHOUSE_DB_USER: warehouse_user
+      WAREHOUSE_DB_PASSWORD: warehouse_pass
+      WAREHOUSE_DB_NAME: warehouse_db
+      IAM_ISSUER: http://iam-mock:9001
+      IAM_JWKS_URL: http://iam-mock:9001/.well-known/jwks.json
+      IAM_ALLOWED_CLIENT_IDS: 11111111-2222-4333-8444-555555555555,svc-orders
+    depends_on:
+      iam-mock:
+        condition: service_started
+      warehouse-mysql:
+        condition: service_healthy
+  test:
+    profiles: ["test"]
+    build:
+      context: .
+      target: builder
+    command: go test ./... -v

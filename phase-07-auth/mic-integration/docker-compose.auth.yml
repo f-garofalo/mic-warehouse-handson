@@ -1,0 +1,119 @@
+services:
+  integration-mysql:
+    image: mysql:8.0
+    container_name: phase07-integration-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+    volumes:
+      - phase07_integration_mysql:/var/lib/mysql
+      - ../../phase-01-monolith/database/schema.sql:/docker-entrypoint-initdb.d/01-mic-schema.sql:ro
+      - ../../phase-01-monolith/database/seed.sql:/docker-entrypoint-initdb.d/02-mic-seed.sql:ro
+      - ../warehouse-init.sql:/docker-entrypoint-initdb.d/03-warehouse-schema.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+    networks:
+      default:
+        aliases:
+          - mysql
+          - warehouse-mysql
+
+  iam-mock:
+    build: ../iam-mock
+    container_name: phase07-integration-iam-mock
+    ports:
+      - "9001:9001"
+    environment:
+      ASPNETCORE_URLS: http://+:9001
+      IAM_ISSUER: http://iam-mock:9001
+      IAM_KEY_ID: tsid-mock-rs512-2026
+      IAM_USER_CLIENT_ID: 11111111-2222-4333-8444-555555555555
+
+  mic-app:
+    build:
+      context: ../../phase-01-monolith
+    container_name: phase07-mic-app
+    environment:
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      DB_NAME: mic
+      DB_USER: root
+      DB_PASS: root
+    depends_on:
+      integration-mysql:
+        condition: service_healthy
+
+  warehouse-bc:
+    build:
+      context: ..
+    container_name: phase07-warehouse-bc
+    environment:
+      LEGACY_DB_HOST: integration-mysql
+      LEGACY_DB_PORT: "3306"
+      LEGACY_DB_USER: root
+      LEGACY_DB_PASSWORD: root
+      LEGACY_DB_NAME: mic
+      WAREHOUSE_DB_HOST: warehouse-mysql
+      WAREHOUSE_DB_PORT: "3306"
+      WAREHOUSE_DB_USER: root
+      WAREHOUSE_DB_PASSWORD: root
+      WAREHOUSE_DB_NAME: warehouse_db
+      READ_MODE: ${READ_MODE:-legacy}
+      IAM_ISSUER: http://iam-mock:9001
+      IAM_JWKS_URL: http://iam-mock:9001/.well-known/jwks.json
+      IAM_ALLOWED_CLIENT_IDS: 11111111-2222-4333-8444-555555555555,svc-orders
+    depends_on:
+      integration-mysql:
+        condition: service_healthy
+      iam-mock:
+        condition: service_started
+
+  mic-compat-adapter:
+    build:
+      context: ./adapter
+    container_name: phase07-mic-compat-adapter
+    environment:
+      WAREHOUSE_BC_URL: http://warehouse-bc:8081
+      MONOLITH_URL: http://mic-app
+    depends_on:
+      - warehouse-bc
+      - mic-app
+
+  strangler-facade:
+    image: nginx:1.27-alpine
+    container_name: phase07-strangler-facade
+    ports:
+      - "8081:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./auth-overlay.js:/etc/nginx/auth-overlay.js:ro
+    depends_on:
+      - mic-app
+      - mic-compat-adapter
+      - iam-mock
+
+  adminer:
+    image: adminer:latest
+    container_name: phase07-integration-adminer
+    ports:
+      - "8082:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: integration-mysql
+    depends_on:
+      integration-mysql:
+        condition: service_healthy
+
+  backfill-articles:
+    image: mysql:8.0
+    profiles: ["tools"]
+    volumes:
+      - ./backfill-articles.sql:/backfill-articles.sql:ro
+    entrypoint: ["sh", "-c", "mysql -hintegration-mysql -uroot -proot < /backfill-articles.sql"]
+    depends_on:
+      integration-mysql:
+        condition: service_healthy
+
+volumes:
+  phase07_integration_mysql:

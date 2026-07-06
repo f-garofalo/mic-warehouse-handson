@@ -1,4 +1,4 @@
-# MIC → Warehouse BC: the Strangler facade (Lesson 9 · Phase 6bis)
+# MIC → Warehouse BC: login and the first policy (Lesson 9 · Phase 7)
 
 > Versione italiana: [`README-IT.md`](./README-IT.md)
 
@@ -8,8 +8,9 @@ Lesson 7 built the domain (Phases 1–3), Lesson 8 added persistence and a first
 **Lesson 9** puts the BC in front of real MIC traffic: you build the **Strangler facade** and operate
 the first cutover.
 
-This branch is the lab for **Lesson 9 — Phase 6bis** (build and operate the Strangler facade), and
-includes Phases 1–5 as context. You do the work; the slides do not hand you the answer.
+This branch is the lab for **Lesson 9 — Phase 7** (the identity envelope: login, and the first
+authorization policy), and includes Phase 6bis and everything before it. You do the work; the slides
+do not hand you the answer.
 
 ## How this repo is organised
 
@@ -33,17 +34,18 @@ Build your own work first. Reach for the solution branch only afterwards.
 | CP3 — Build | [`phase-03-skeleton/`](./phase-03-skeleton/README.md) | *(Lesson 7)* The Go domain layer. |
 | CP4 — Persist | [`phase-04-db/`](./phase-04-db/README.md) | *(Lesson 8)* Real adapters (legacy **ACL**) + a **dual-write** decorator. |
 | CP5 — Serve | [`phase-05-usecases/`](./phase-05-usecases/README.md) | *(Lesson 8)* Use cases and a thin HTTP API. |
-| **CP6bis — Route** | [**`phase-06bis-strangler/`**](./phase-06bis-strangler/README.md) | **This lesson:** write the facade's **routing decision**, then operate the cutover: two dials, staleness, incident, rollback. Your Phase 4 dual-write runs underneath. |
+| CP6bis — Route | [`phase-06bis-strangler/`](./phase-06bis-strangler/README.md) | Write the facade's **routing decision**, then operate the cutover. |
+| **CP7 — Protect** | [**`phase-07-auth/`**](./phase-07-auth/README.md) | **This lesson:** the **identity envelope** (teach MIC to log in, JWT/JWKS) and the **first policy** (Alice creates, Bob reads). |
 
-**Where to start:** open [`phase-06bis-strangler/README.md`](./phase-06bis-strangler/README.md).
-Phases 1–5 are included as context.
+**Where to start:** open [`phase-07-auth/README.md`](./phase-07-auth/README.md).
+Phase 6bis and everything before it are included as context.
 
 ## Using an AI coding agent
 
 AI coding agents are part of the method here, not a shortcut around it.
 
 - **Start the agent in the right folder.** Open it on the phase folder you are working in
-  (`phase-06bis-strangler/`), not the whole repo, so it sees the code that matters.
+  (`phase-07-auth/`), not the whole repo, so it sees the code that matters.
 - **You own the conclusions.** The agent reads, drafts, and writes syntax; you decide the design, the
   invariants, and what goes into your deliverables.
 - **Push back.** When it asserts a rule, ask *"where in the code did you see that?"* before you trust it.
