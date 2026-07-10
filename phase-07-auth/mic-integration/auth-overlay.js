@@ -12,21 +12,44 @@
   const originalFetch = window.fetch.bind(window);
 
   window.fetch = async function phase07Fetch(input, init) {
-    // TODO Phase 07 Parte B:
-    // - clone init without mutating the caller's object;
-    // - for same-origin /api/* calls, add:
-    //   Authorization: Bearer <sessionStorage token>
-    //   X-Workspace-ID: <sessionStorage workspace or ws-acme>
-    // - leave /iam/* and external calls untouched.
-    return originalFetch(input, init);
+    const url = typeof input === 'string' ? input : (input && input.url) || '';
+    const isApi = url.startsWith('/api/') || url.startsWith(window.location.origin + '/api/');
+    if (!isApi) {
+      // /iam/* and external calls: leave the request exactly as the caller made it.
+      return originalFetch(input, init);
+    }
+    // Clone init without mutating the caller's object, then stamp the identity headers.
+    const nextInit = Object.assign({}, init);
+    const headers = new Headers((init && init.headers) || {});
+    const token = sessionStorage.getItem(TOKEN_KEY);
+    if (token) {
+      headers.set('Authorization', 'Bearer ' + token);
+    }
+    headers.set('X-Workspace-ID', sessionStorage.getItem(WORKSPACE_KEY) || DEFAULT_WORKSPACE);
+    nextInit.headers = headers;
+    return originalFetch(input, nextInit);
   };
 
   async function loginDemoUser(username) {
-    // TODO Phase 07 Parte B:
-    // POST application/x-www-form-urlencoded to /iam/oauth/token with:
-    // grant_type=password, username, password=demo, client_id, scope.
-    // Store access_token in sessionStorage under TOKEN_KEY.
-    window.alert('TODO Phase 07: implement demo login before retrying Articles.');
+    const body = new URLSearchParams({
+      grant_type: 'password',
+      username: username,
+      password: 'demo',
+      client_id: USER_CLIENT_ID,
+      scope: 'openid profile offline_access',
+    });
+    // Use the original fetch: this is an /iam/* call and must not carry a Bearer.
+    const res = await originalFetch('/iam/oauth/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString(),
+    });
+    if (!res.ok) {
+      throw new Error('token endpoint returned ' + res.status);
+    }
+    const data = await res.json();
+    sessionStorage.setItem(TOKEN_KEY, data.access_token);
+    window.location.reload();
   }
 
   function logoutDemoUser() {
