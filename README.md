@@ -1,4 +1,4 @@
-# MIC → Warehouse BC: the fact leaves the BC (Lesson 10 · Phase 9)
+# MIC → Warehouse BC: a tool surface for AI agents (Lesson 10 · Phase 11)
 
 A hands-on lab continuing the extraction of the **Warehouse** Bounded Context out of **MIC**, a legacy
 PHP invoicing monolith, into a clean **Go** microservice, with an **AI coding agent** as your engine.
@@ -6,9 +6,9 @@ Lesson 7 built the domain (Phases 1–3), Lesson 8 added persistence and a first
 Lesson 9 put the BC in front of real MIC traffic (Phases 6bis–7); **Lesson 10** retires the dual-write,
 makes facts travel as events, and then gives the BC a tool surface for AI agents.
 
-This branch is the lab for **Lesson 10 — Phase 9** (the dual-write steps aside; the BC publishes
-Hermes Data Products in CloudEvents envelopes, and a MIC consumer builds a projection it owns), and
-includes Phase 7 and everything before it. You do the work; the slides do not hand you the answer.
+This branch is the lab for **Lesson 10 — Phase 11** (an **MCP server** in front of the BC: tools an
+AI agent can discover and call, behind the Phase 07 identity and the policy you wrote), and includes
+Phase 9 and everything before it. You do the work; the slides do not hand you the answer.
 
 ## How this repo is organised
 
@@ -34,17 +34,18 @@ Build your own work first. Reach for the solution branch only afterwards.
 | CP5 — Serve | [`phase-05-usecases/`](./phase-05-usecases/README.md) | *(Lesson 8)* Use cases and a thin HTTP API. |
 | CP6bis — Route | [`phase-06bis-strangler/`](./phase-06bis-strangler/README.md) | *(Lesson 9)* Write the facade's **routing decision**, then operate the cutover. |
 | CP7 — Protect | [`phase-07-auth/`](./phase-07-auth/README.md) | *(Lesson 9)* The **identity envelope** (login, JWT/JWKS) and the **first policy**. |
-| **CP9 — Publish** | [**`phase-09-events/`**](./phase-09-events/README.md) | **This lesson:** the dual-write retires; you write **both ends of the contract**: the Hermes publisher mapping (Go) and the MIC consumer projection (PHP). |
+| CP9 — Publish | [`phase-09-events/`](./phase-09-events/README.md) | *(This lesson, activity 1)* The dual-write retires; facts travel as Hermes Data Products. |
+| **CP11 — Expose** | [**`phase-11-mcp/`**](./phase-11-mcp/README.md) | **This lesson:** write the BC's **MCP tools**: schema, description, handler; then talk to your warehouse through an AI agent. |
 
-**Where to start:** open [`phase-09-events/README.md`](./phase-09-events/README.md).
-Phase 7 and everything before it are included as context.
+**Where to start:** open [`phase-11-mcp/README.md`](./phase-11-mcp/README.md).
+Phase 9 and everything before it are included as context.
 
 ## Using an AI coding agent
 
 AI coding agents are part of the method here, not a shortcut around it.
 
 - **Start the agent in the right folder.** Open it on the phase folder you are working in
-  (`phase-09-events/`), not the whole repo, so it sees the code that matters.
+  (`phase-11-mcp/`), not the whole repo, so it sees the code that matters.
 - **You own the conclusions.** The agent reads, drafts, and writes syntax; you decide the design, the
   invariants, and what goes into your deliverables.
 - **Push back.** When it asserts a rule, ask *"where in the code did you see that?"* before you trust it.

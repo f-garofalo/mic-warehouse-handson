@@ -1,0 +1,9 @@
+{
+  "servers": {
+    "warehouse-bc": {
+      "type": "stdio",
+      "command": "docker",
+      "args": ["compose", "run", "--rm", "-T", "--no-deps", "mcp-server"]
+    }
+  }
+}
