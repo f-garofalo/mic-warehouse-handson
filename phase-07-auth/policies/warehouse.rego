@@ -34,4 +34,25 @@ article_creators := {
 	"svc-orders", # the orders service (M2M)
 }
 
-default allow := false # deny everything until you build it
+default allow := false # deny everything until the rules below say otherwise
+
+# article:read — every authenticated caller may read. A nil principal produces
+# no `input.principal`, so this rule cannot match and the default denies.
+allow if {
+	input.action == "article:read"
+	input.principal
+}
+
+# article:create (user) — only principals whose email is in article_creators.
+allow if {
+	input.action == "article:create"
+	input.principal.kind == "user"
+	input.principal.email in article_creators
+}
+
+# article:create (M2M) — only services whose id is in article_creators.
+allow if {
+	input.action == "article:create"
+	input.principal.kind == "m2m"
+	input.principal.service_id in article_creators
+}
