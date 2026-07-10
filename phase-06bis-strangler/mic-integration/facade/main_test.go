@@ -34,8 +34,6 @@ func TestDecideUpstreamPart1(t *testing.T) {
 // Part 3: the article CREATE migrates too. Remove the t.Skip line when you
 // take on Part 3, then update decideUpstream until this is green.
 func TestDecideUpstream_part3CreateCutover(t *testing.T) {
-	t.Skip("Part 3: remove this skip when you migrate the create")
-
 	tests := []struct {
 		name   string
 		method string

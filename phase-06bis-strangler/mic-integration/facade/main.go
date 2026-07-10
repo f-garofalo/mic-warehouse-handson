@@ -103,19 +103,23 @@ func (f *facade) handleProxy(w http.ResponseWriter, r *http.Request) {
 // method of the request and the facade's mode, it names the backend that
 // must answer the /api/articles route ("monolith" or "warehouse-bc").
 //
-// We migrate operation by operation. Today's subset is the article READ
-// (the list) and, in Part 3, the article CREATE. Everything else is simply
-// not migrated YET.
+// We migrate operation by operation. The migrated subset is the article
+// READ (the list, Part 1) and the article CREATE (Part 3); both follow the
+// dial. Every other method (update, delete) is simply not migrated YET.
 //
-// TODO Phase 06bis Part 1:
-//   - GET (the article list): mode "warehouse-bc" sends it to the
-//     warehouse-bc upstream; mode "legacy", or anything unexpected, keeps
-//     it on the monolith (fail safe, toward the old system);
-//   - any other method (create, update, delete): monolith — those
-//     operations are not migrated yet. Part 3 will change this rule for
-//     the create.
+//   - GET/POST: mode "warehouse-bc" sends them to the warehouse-bc upstream;
+//     mode "legacy", or anything unexpected, keeps them on the monolith
+//     (fail safe / rollback, toward the old system);
+//   - any other method (update, delete): monolith — not migrated yet.
 func decideUpstream(method, mode string) string {
-	return upstreamMonolith // TODO: everything stays legacy until you implement the decision
+	migrated := method == http.MethodGet || method == http.MethodPost
+	if !migrated {
+		return upstreamMonolith // update, delete: not migrated yet
+	}
+	if mode == modeWarehouseBC {
+		return upstreamWarehouseBC
+	}
+	return upstreamMonolith // legacy mode is the rollback, for reads and writes alike
 }
 
 func proxyTo(rawURL, routeName string) (http.Handler, error) {
