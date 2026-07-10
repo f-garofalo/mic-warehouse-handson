@@ -1,0 +1,14 @@
+{
+  "$id": "warehouse.inventory.adjusted.v1",
+  "version": "1.0.0",
+  "lifecycle": "stable",
+  "required": ["article_id", "location_code", "delta", "new_quantity", "at"],
+  "properties": {
+    "article_id":    { "type": "string" },
+    "location_code": { "type": "string" },
+    "delta":         { "type": "integer" },
+    "new_quantity":  { "type": "integer" },
+    "reason":        { "type": "string" },
+    "at":            { "type": "string", "format": "date-time" }
+  }
+}

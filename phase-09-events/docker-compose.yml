@@ -1,0 +1,186 @@
+services:
+  integration-mysql:
+    image: mysql:8.0
+    container_name: phase09-integration-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+    volumes:
+      - phase09_integration_mysql:/var/lib/mysql
+      - ../phase-01-monolith/database/schema.sql:/docker-entrypoint-initdb.d/01-mic-schema.sql:ro
+      - ../phase-01-monolith/database/seed.sql:/docker-entrypoint-initdb.d/02-mic-seed.sql:ro
+      - ./warehouse-init.sql:/docker-entrypoint-initdb.d/03-warehouse-schema.sql:ro
+      - ./mic-integration/projection-init.sql:/docker-entrypoint-initdb.d/04-projection.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+    networks:
+      default:
+        aliases:
+          - mysql
+          - warehouse-mysql
+
+  iam-mock:
+    build: ./iam-mock
+    container_name: phase09-iam-mock
+    ports:
+      - "9001:9001"
+    environment:
+      ASPNETCORE_URLS: http://+:9001
+      IAM_ISSUER: http://iam-mock:9001
+      IAM_KEY_ID: tsid-mock-rs512-2026
+      IAM_USER_CLIENT_ID: 11111111-2222-4333-8444-555555555555
+
+  mic-app:
+    build:
+      context: ../phase-01-monolith
+    container_name: phase09-mic-app
+    environment:
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      DB_NAME: mic
+      DB_USER: root
+      DB_PASS: root
+    depends_on:
+      integration-mysql:
+        condition: service_healthy
+
+  # The Warehouse BC, dual-write retired: it talks to warehouse_db ONLY.
+  # No LEGACY_DB_* variables, no READ_MODE dial: compare with Phase 07.
+  warehouse-bc:
+    build: .
+    container_name: phase09-warehouse-bc
+    ports:
+      - "8083:8081"
+    environment:
+      WAREHOUSE_DB_HOST: integration-mysql
+      WAREHOUSE_DB_PORT: "3306"
+      WAREHOUSE_DB_USER: root
+      WAREHOUSE_DB_PASSWORD: root
+      WAREHOUSE_DB_NAME: warehouse_db
+      IAM_ISSUER: http://iam-mock:9001
+      IAM_JWKS_URL: http://iam-mock:9001/.well-known/jwks.json
+      IAM_ALLOWED_CLIENT_IDS: 11111111-2222-4333-8444-555555555555,svc-orders
+    depends_on:
+      integration-mysql:
+        condition: service_healthy
+      iam-mock:
+        condition: service_started
+
+  # Given: merges the legacy MIC article list with the consumer-owned
+  # projection rows (record_type='warehouse_article_projection') on
+  # GET /api/articles. This is the read model the order entry screen uses.
+  mic-projection-adapter:
+    build: ./mic-integration/adapter
+    container_name: phase09-mic-projection-adapter
+    environment:
+      MONOLITH_URL: http://mic-app
+      DB_HOST: integration-mysql
+      DB_PORT: "3306"
+      DB_NAME: mic
+      DB_USER: root
+      DB_PASS: root
+    depends_on:
+      mic-app:
+        condition: service_started
+      integration-mysql:
+        condition: service_healthy
+
+  strangler-facade:
+    image: nginx:1.27-alpine
+    container_name: phase09-strangler-facade
+    ports:
+      - "8081:80"
+    volumes:
+      - ./mic-integration/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      mic-app:
+        condition: service_started
+      mic-projection-adapter:
+        condition: service_started
+      warehouse-bc:
+        condition: service_started
+
+  # The MIC-side Hermes consumer (Task 2 lives in ./mic-integration/consumer).
+  # Continuous mode, one poll every few seconds:
+  #   docker compose --profile consumer up -d mic-hermes-consumer
+  mic-hermes-consumer:
+    build:
+      context: ../phase-01-monolith
+    profiles: ["consumer"]
+    container_name: phase09-mic-hermes-consumer
+    depends_on:
+      integration-mysql:
+        condition: service_healthy
+      warehouse-bc:
+        condition: service_started
+    environment:
+      DB_HOST: integration-mysql
+      DB_PORT: "3306"
+      DB_NAME: mic
+      DB_USER: root
+      DB_PASS: root
+      HERMES_RECORDS_URL: http://warehouse-bc:8081/debug/hermes/records?type=warehouse.article.v1
+      CONSUMER_MODE: loop
+      POLL_INTERVAL_SECONDS: "5"
+    volumes:
+      - ./mic-integration/consumer:/consumer:ro
+    command: php /consumer/consumer.php
+
+  # One manual pass, useful for debugging the mapping:
+  #   docker compose --profile tools run --rm mic-hermes-consumer-once
+  mic-hermes-consumer-once:
+    build:
+      context: ../phase-01-monolith
+    profiles: ["tools"]
+    depends_on:
+      integration-mysql:
+        condition: service_healthy
+      warehouse-bc:
+        condition: service_started
+    environment:
+      DB_HOST: integration-mysql
+      DB_PORT: "3306"
+      DB_NAME: mic
+      DB_USER: root
+      DB_PASS: root
+      HERMES_RECORDS_URL: http://warehouse-bc:8081/debug/hermes/records?type=warehouse.article.v1
+      CONSUMER_MODE: once
+    volumes:
+      - ./mic-integration/consumer:/consumer:ro
+    command: php /consumer/consumer.php
+
+  # One-time copy of the legacy articles into the warehouse store (same ids):
+  # the stock the BC took ownership of during the migration.
+  #   docker compose --profile tools run --rm backfill-articles
+  backfill-articles:
+    image: mysql:8.0
+    profiles: ["tools"]
+    volumes:
+      - ./mic-integration/backfill-articles.sql:/backfill-articles.sql:ro
+    entrypoint: ["sh", "-c", "mysql -hintegration-mysql -uroot -proot < /backfill-articles.sql"]
+    depends_on:
+      integration-mysql:
+        condition: service_healthy
+
+  # The exercise suite (Task 1 ships red, no stack needed):
+  #   docker compose run --build --rm test
+  test:
+    profiles: ["test"]
+    build:
+      context: .
+      target: builder
+    command: go test ./... -v
+
+  adminer:
+    image: adminer:latest
+    container_name: phase09-adminer
+    ports:
+      - "8082:8080"
+    depends_on:
+      integration-mysql:
+        condition: service_healthy
+
+volumes:
+  phase09_integration_mysql:

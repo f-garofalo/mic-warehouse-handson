@@ -1,0 +1,18 @@
+# Corporate proxy (Netskope) overlay: append to build/up commands when Go or
+# NuGet downloads fail with certificate errors, e.g.
+#   NETSKOPE_CA_BUNDLE=/path/to/netskope-cert-bundle.pem \
+#   docker compose -f docker-compose.yml -f docker-compose.netskope.yml up -d --build
+services:
+  warehouse-bc:
+    build:
+      secrets:
+        - netskope_ca
+
+  test:
+    build:
+      secrets:
+        - netskope_ca
+
+secrets:
+  netskope_ca:
+    file: ${NETSKOPE_CA_BUNDLE}

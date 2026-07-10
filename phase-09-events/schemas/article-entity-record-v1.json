@@ -1,0 +1,16 @@
+{
+  "$id": "warehouse.article.v1",
+  "version": "1.0.0",
+  "lifecycle": "stable",
+  "record_type": "EntityRecord",
+  "required": ["article_id", "sku", "name", "price_cents", "currency", "updated_at"],
+  "properties": {
+    "article_id":  { "type": "string" },
+    "sku":         { "type": "string" },
+    "name":        { "type": "string" },
+    "description": { "type": "string" },
+    "price_cents": { "type": "integer" },
+    "currency":    { "type": "string" },
+    "updated_at":  { "type": "string", "format": "date-time" }
+  }
+}
