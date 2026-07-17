@@ -117,13 +117,17 @@ func mapEventToSchema(e DomainEvent) (string, map[string]any, error) {
 			"at":            ev.At.Format(time.RFC3339Nano),
 		}, nil
 	case ArticleCreated:
-		// TODO Phase 09 Task 1a — map ArticleCreated to the Data Product
-		// "warehouse.article.v1". The contract is
-		// schemas/article-entity-record-v1.json: look at its required list
-		// and pattern-match the worked example above. Mind the field names:
-		// the event says ArticleName, the contract says something else.
-		_ = ev
-		return "", nil, fmt.Errorf("TODO Phase 09 Task 1a: map ArticleCreated to warehouse.article.v1")
+		// The Data Product payload: keys from the contract
+		// (schemas/article-entity-record-v1.json), values from the event.
+		// The event field is ArticleName; the contract calls it "name".
+		return "warehouse.article.v1", map[string]any{
+			"article_id":  ev.ArticleID,
+			"sku":         ev.SKU,
+			"name":        ev.ArticleName,
+			"price_cents": ev.PriceCents,
+			"currency":    ev.Currency,
+			"updated_at":  ev.At.Format(time.RFC3339Nano),
+		}, nil
 	default:
 		return "", nil, fmt.Errorf("hermes: no schema mapping for %T", e)
 	}
@@ -153,10 +157,9 @@ func eventMetadata(e DomainEvent) (time.Time, string, error) {
 		// GIVEN — the worked example.
 		return ev.At, "articles/" + ev.ArticleID + "/inventory/" + ev.LocationCode, nil
 	case ArticleCreated:
-		// TODO Phase 09 Task 1b — the envelope metadata for ArticleCreated:
-		// the event's time, and the subject "articles/<article id>".
-		_ = ev
-		return time.Time{}, "", fmt.Errorf("TODO Phase 09 Task 1b: CloudEvents metadata for ArticleCreated")
+		// The envelope metadata: the event's time, and the subject that
+		// identifies the created article resource.
+		return ev.At, "articles/" + ev.ArticleID, nil
 	default:
 		return time.Time{}, "", fmt.Errorf("hermes: no CloudEvents metadata for %T", e)
 	}
