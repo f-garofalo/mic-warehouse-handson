@@ -3,6 +3,9 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
+	"net/http"
+	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -11,27 +14,18 @@ import (
 //
 // This tool WRITES to the warehouse. The BC does not treat the agent
 // specially: the request goes through the same auth middleware and the same
-// policy you wrote in Phase 07. It succeeds only because the MCP server's
-// identity (svc-warehouse-agent) is in the article_creators set; look at
+// policy written in Phase 07. It succeeds only because the MCP server's
+// identity (svc-warehouse-agent) is in the article_creators set of
 // ../policies/warehouse.rego — that one line is the whole permission.
-//
-// A write tool raises the bar on the description: the agent must understand
-// from your text that this has a side effect, when it is appropriate, and
-// exactly which fields are required. The specification is
-// tools_create_test.go (ships red).
 
 // CreateArticleInput is the tool's input schema. The BC mints the article id
 // at persistence: the agent never supplies one.
-//
-// TODO Phase 11 Task 2a — write the jsonschema descriptions. Mark what is
-// required and what is optional with its default; be precise about
-// price_cents (integer cents, not a decimal).
 type CreateArticleInput struct {
-	SKU         string `json:"sku" jsonschema:"TODO"`
-	Name        string `json:"name" jsonschema:"TODO"`
-	Description string `json:"description,omitempty" jsonschema:"TODO"`
-	PriceCents  int64  `json:"price_cents" jsonschema:"TODO"`
-	Currency    string `json:"currency,omitempty" jsonschema:"TODO"`
+	SKU         string `json:"sku" jsonschema:"Required. Stock keeping unit: the article's unique business code, e.g. SKU-BOLT-M8."`
+	Name        string `json:"name" jsonschema:"Required. Human-readable article name, e.g. Hex bolt M8."`
+	Description string `json:"description,omitempty" jsonschema:"Optional free-text description; omit when unknown."`
+	PriceCents  int64  `json:"price_cents" jsonschema:"Required. Unit price in integer euro cents: 1299 means 12.99. Never pass a decimal or a euro amount."`
+	Currency    string `json:"currency,omitempty" jsonschema:"Optional ISO 4217 currency code; defaults to EUR when omitted."`
 }
 
 // CreateArticleOutput is the tool's output schema.
@@ -42,24 +36,45 @@ type CreateArticleOutput struct {
 func registerCreateArticle(s *mcp.Server, bc *BCClient) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "create_article",
-		// TODO Phase 11 Task 2b — the description must say, for a model
-		// reader: this tool CREATES an article (a side effect, not a query),
-		// when to use it, and which fields are required.
-		Description: "TODO",
+		Description: "Create a NEW article in the warehouse. This is a WRITE with a " +
+			"permanent side effect: it persists a new article, so use it only " +
+			"when the user wants to add an article that does not exist yet, " +
+			"never to look one up (use list_articles or get_article for that). " +
+			"Required: sku, name and price_cents (integer euro cents, e.g. " +
+			"1299 = 12.99). The warehouse assigns the id; never send one. " +
+			"Returns the persisted article, including its minted id.",
 	}, createArticleHandler(bc))
 }
 
 func createArticleHandler(bc *BCClient) mcp.ToolHandlerFor[CreateArticleInput, CreateArticleOutput] {
 	return func(ctx context.Context, req *mcp.CallToolRequest, in CreateArticleInput) (*mcp.CallToolResult, CreateArticleOutput, error) {
-		// TODO Phase 11 Task 2c — the handler:
-		//   1. reject empty SKU or Name locally, without calling the BC:
-		//      the error must tell the agent which field is missing;
-		//   2. default Currency to "EUR" when omitted;
-		//   3. POST /articles via bc.DoJSON (the BC's CreateArticleRequest
-		//      shape: sku, name, description, price_cents, currency; no id);
-		//   4. a 403 means the policy said no: return an error that names
-		//      the policy, so the agent can explain instead of retrying;
-		//   5. on success return the persisted article.
-		return nil, CreateArticleOutput{}, errors.New("TODO Phase 11 Task 2: implement create_article")
+		// Reject obviously invalid input before spending a BC round-trip; the
+		// error names the missing field so the agent can fix its own call.
+		if strings.TrimSpace(in.SKU) == "" {
+			return nil, CreateArticleOutput{}, errors.New("sku is required to create an article")
+		}
+		if strings.TrimSpace(in.Name) == "" {
+			return nil, CreateArticleOutput{}, errors.New("name is required to create an article")
+		}
+		if strings.TrimSpace(in.Currency) == "" {
+			in.Currency = "EUR"
+		}
+
+		// The input struct already serialises to the BC's CreateArticleRequest
+		// shape (sku, name, description, price_cents, currency) with no id: the
+		// system of record mints the id (Phase 04).
+		var article Article
+		err := bc.DoJSON(ctx, http.MethodPost, "/articles", in, &article)
+
+		// A 403 is a policy decision, not a malfunction: name the policy so the
+		// agent explains the denial to the user instead of retrying it.
+		var apiErr *APIError
+		if errors.As(err, &apiErr) && apiErr.Status == http.StatusForbidden {
+			return nil, CreateArticleOutput{}, fmt.Errorf("the warehouse policy denied creating this article: the svc-warehouse-agent identity is not allowed to create articles. Explain the denial to the user; do not retry (%s)", apiErr.Body)
+		}
+		if err != nil {
+			return nil, CreateArticleOutput{}, err
+		}
+		return nil, CreateArticleOutput{Article: article}, nil
 	}
 }
