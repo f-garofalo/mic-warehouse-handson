@@ -66,11 +66,17 @@ func createArticleHandler(bc *BCClient) mcp.ToolHandlerFor[CreateArticleInput, C
 		var article Article
 		err := bc.DoJSON(ctx, http.MethodPost, "/articles", in, &article)
 
-		// A 403 is a policy decision, not a malfunction: name the policy so the
-		// agent explains the denial to the user instead of retrying it.
+		// The BC's answer carries the outcome. A policy denial (403) and a
+		// rejected body (400) are both decisions the agent should surface, not
+		// retry — so give each a message it can act on.
 		var apiErr *APIError
-		if errors.As(err, &apiErr) && apiErr.Status == http.StatusForbidden {
-			return nil, CreateArticleOutput{}, fmt.Errorf("the warehouse policy denied creating this article: the svc-warehouse-agent identity is not allowed to create articles. Explain the denial to the user; do not retry (%s)", apiErr.Body)
+		if errors.As(err, &apiErr) {
+			switch apiErr.Status {
+			case http.StatusForbidden:
+				return nil, CreateArticleOutput{}, fmt.Errorf("the warehouse policy denied creating this article: the svc-warehouse-agent identity is not allowed to create articles (policies/warehouse.rego decides who may). Explain the denial to the user; do not retry (%s)", apiErr.Body)
+			case http.StatusBadRequest:
+				return nil, CreateArticleOutput{}, fmt.Errorf("the warehouse rejected the article as invalid: %s", apiErr.Body)
+			}
 		}
 		if err != nil {
 			return nil, CreateArticleOutput{}, err
