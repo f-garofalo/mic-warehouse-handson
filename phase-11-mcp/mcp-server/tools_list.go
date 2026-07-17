@@ -2,7 +2,8 @@ package main
 
 import (
 	"context"
-	"errors"
+	"net/http"
+	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -10,18 +11,15 @@ import (
 // ▸ Task 1 — list_articles
 //
 // The BC endpoint GET /articles returns EVERY article and takes no filters:
-// fine for a program, hostile for a conversation. Your tool shapes the
-// surface: filter and cap HERE, so the agent gets what it asked for and
-// nothing more. The specification is tools_list_test.go (ships red).
+// fine for a program, hostile for a conversation. This tool shapes the
+// surface — filter and cap HERE — so the agent gets what it asked for and
+// nothing more.
 
-// ListArticlesInput is the tool's input schema.
-//
-// TODO Phase 11 Task 1a — write the two jsonschema descriptions. Each one
-// must say what the field means AND what happens when it is omitted; the
-// agent decides how to call you based only on this text.
+// ListArticlesInput is the tool's input schema. These descriptions are the
+// only thing the agent reads before choosing query and limit.
 type ListArticlesInput struct {
-	Query string `json:"query,omitempty" jsonschema:"TODO"`
-	Limit int    `json:"limit,omitempty" jsonschema:"TODO"`
+	Query string `json:"query,omitempty" jsonschema:"Optional. Case-insensitive text matched against each article's SKU and name; return only matching articles. Omit to browse the whole catalogue (still capped by limit)."`
+	Limit int    `json:"limit,omitempty" jsonschema:"Optional. Maximum number of articles to return. Omit or pass 0 for the default of 20."`
 }
 
 // ListArticlesOutput is the tool's output schema.
@@ -33,21 +31,42 @@ type ListArticlesOutput struct {
 func registerListArticles(s *mcp.Server, bc *BCClient) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "list_articles",
-		// TODO Phase 11 Task 1b — write the description for a model reader:
-		// what the tool returns, when to prefer it over get_article, how
-		// query and limit behave. A vague description produces wrong calls.
-		Description: "TODO",
+		Description: "List articles in the warehouse and return their id, SKU, name, " +
+			"price and stock. Prefer this over get_article whenever you do not " +
+			"already know an id: pass query to search by SKU or name " +
+			"(case-insensitive), and limit to cap how many rows come back " +
+			"(default 20). Use the ids it returns to call get_article for detail, " +
+			"or create_article / adjust_inventory to act.",
 	}, listArticlesHandler(bc))
 }
 
 func listArticlesHandler(bc *BCClient) mcp.ToolHandlerFor[ListArticlesInput, ListArticlesOutput] {
 	return func(ctx context.Context, req *mcp.CallToolRequest, in ListArticlesInput) (*mcp.CallToolResult, ListArticlesOutput, error) {
-		// TODO Phase 11 Task 1c — the handler:
-		//   1. fetch all articles: bc.DoJSON GET /articles into []Article;
-		//   2. if in.Query is set, keep only articles whose SKU or Name
-		//      contains it, case-insensitive;
-		//   3. cap the result at in.Limit (treat 0 as the default, 20);
-		//   4. return Count and Articles.
-		return nil, ListArticlesOutput{}, errors.New("TODO Phase 11 Task 1: implement list_articles")
+		// The BC has no filters: fetch everything, then shape it here.
+		var articles []Article
+		if err := bc.DoJSON(ctx, http.MethodGet, "/articles", nil, &articles); err != nil {
+			return nil, ListArticlesOutput{}, err
+		}
+
+		if needle := strings.ToLower(strings.TrimSpace(in.Query)); needle != "" {
+			var matched []Article
+			for _, a := range articles {
+				if strings.Contains(strings.ToLower(a.SKU), needle) ||
+					strings.Contains(strings.ToLower(a.Name), needle) {
+					matched = append(matched, a)
+				}
+			}
+			articles = matched
+		}
+
+		limit := in.Limit
+		if limit <= 0 {
+			limit = 20
+		}
+		if len(articles) > limit {
+			articles = articles[:limit]
+		}
+
+		return nil, ListArticlesOutput{Count: len(articles), Articles: articles}, nil
 	}
 }
